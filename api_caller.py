@@ -102,43 +102,179 @@ class CSVPartsProcessor:
 Part: {part_number}
 Filename: {filename}{model_hint}
 
-BE AGGRESSIVE - extract every specification you can find. Look in:
-- Tables listing models and specs
-- Bullet points with features
-- Technical specifications sections
-- Compatibility lists
-- Even footnotes and headers
+Your goal is to provide a standardized, detailed description for every hardware part after reading its datasheet specs. This will be the foundation
+of our database and allow for AI analysis/automation. Read the .txt files provided and extract every possible technical or form/fit/function specification you can find. 
+The purpose of this is to create a standardized description and JSON format for every single part in our company's ERP database, with every technical spec from the datasheet
+that will allow AI to analyze our the parts we select and determine if they are compatible with each other as part of a military grade rugged server build.
 
-Return a JSON with these exact fields:
-{{
-    "category": "[CPU/RAM/NIC/STORAGE/GPU/PSU/CABLE/etc.]",
-    "part_number": "{part_number}",
-    "description": "[Create using appropriate template format]",
-    "manufacturer": "[Company name]",
-    "model": "[Model number - CHECK FILENAME]",
-    "interface": "[PCIe/SATA/etc. with version]",
-    "speed": "[Primary speed rating]",
-    "ports": "[Number of ports if applicable]",
-    "power_max": "[Maximum power in watts]",
-    "form_factor": "[Physical form factor]",
-    "json_specs": {{
-        "physical_specs": {{}},
-        "core_specs": {{}},
-        "extended_specs": {{}},
-        "power_specs": {{}}
-    }}
-}}
+First begin with returning the JSON format.
 
-For descriptions use these formats:
-- NIC: "NIC | [interface] | [manufacturer] | [model] | [speed_ports] | [connector] | [power]"
-- CPU: "CPU | [model] | [cores/threads] | [clock] | [socket] | [power]"
-- RAM: "RAM | [capacity] | [speed] | [rank] | [type] | [voltage] | [power]"
-- STORAGE: "STORAGE | [form] | [manufacturer] | [model] | [capacity] | [interface] | [power]"
+Return a JSON with these exact fields, including all JSON specs in 1 csv cell to keep it compact. If the datasheet does not contain a value
+for a certain key, list 'N/A' as the value:
+In order to keep the JSON format standardized, while also accounting for different types of hardware, we will define a Hybrid JSON Strategy. This approach uses four consistent top-level blocks while allowing the core_specs to adapt based on the part type.
+The Hybrid JSON Standard:
+Objective: Extract hardware data into a structured JSON object that supports both universal system tracking (physical/power) and specific technical performance (core).
+1. The Universal Four-Block Structure: Every JSON object must contain these four keys:
+•	physical_specs: Dimensions, weight, and mounting details.
+•	core_specs: Dynamic technical attributes specific to the part type (CPU, RAM, Cable, etc.).
+•	extended_specs: Compliance, warranty, and an AI-generated technical summary.
+•	power_specs: Detailed electrical requirements for system-wide power budgeting.
+
+The Master Hybrid JSON Structure to be used for API calls that analyze our quotes and warn us of potential compatibility problems, fitment issues, provide recommendations, etc. 
+This top-level schema remains identical for every part, ensuring our database queries are predictable.
+JSON
+{
+  "physical_specs": {
+    "dimensions": "L x W x H (units)",
+    "weight": "Value (units)",
+    "material": "e.g., Aluminum, Stainless Steel",
+    "mounting": "e.g., VESA 75, M3 Screws, Tool-less"
+  },
+  "core_specs": {
+    "//": "This section varies dynamically based on the Part Type."
+  },
+  "extended_specs": {
+    "compliance": ["RoHS", "TAA", "MIL-STD-810H"],
+    "warranty": "e.g., 3-Year Limited",
+    "datasheet_summary": "Short AI-generated technical summary of the part."
+  },
+  "power_specs": {
+    "voltage_range": "e.g., 100-240V AC or 12V DC",
+    "max_power_draw": "Wattage Value (e.g., 270W)",
+    "idle_power_draw": "Wattage Value",
+    "connector_type": "e.g., 8-pin EPS, 12VHPWR"
+  }
+}
+
+How core_specs varies by Part Type
+While the other blocks stay the same, the core_specs block adapts to the specific technology of the part. Here are the most critical version:
+1. CPU Core Specs
+JSON
+"core_specs": {
+  "model": "Xeon Gold 6430",
+  "cores_threads": "32C/64T",
+  "base_clock": "2.1GHz",
+  "socket": "LGA 4677",
+  "tdp_thermal": "270W"
+}
+2. Storage Core Specs
+JSON
+"core_specs": {
+  "form_factor": "U.2 (15mm)",
+  "capacity_tb": 7.68,
+  "interface": "NVMe PCIe Gen4 x4",
+  "sequential_read_mbps": 7000,
+  "endurance_dwpd": 1.0
+}
+3. Cable Core Specs
+JSON
+"core_specs": {
+  "connector_a": "SlimSAS 8i",
+  "connector_b": "2x U.2 SFF-8639",
+  "length_mm": 500,
+  "front_device": "RAID Controller",
+  "back_device": "Drive Backplane",
+  "speed_rating": "PCIe Gen5 (32Gbps/lane)"
+}
+4. Adapter Core Specs
+JSON
+"core_specs": {
+  "input_connector": "USB 3.0 19-pin",
+  "output_connector": "USB 2.0 9-pin",
+  "gender": "Male to Female",
+  "logic_type": "Passive",
+  "max_bandwidth": "480Mbps"
+}
+
+
+Example:
+{
+  "physical_specs": {
+    "dimensions": "167mm x 69mm",
+    "weight": "250g",
+    "material": "PCB / Aluminum Heatsink",
+    "mounting": "HHHL (Half-Height, Half-Length) PCIe Slot"
+  },
+  "core_specs": {
+    "bus_interface": "PCIe Gen6 x16",
+    "ports": 2,
+    "speed_per_port": "400GbE",
+    "connector_type": "QSFP112",
+    "controller": "ConnectX-8 C8240",
+    "offloading_features": ["RDMA", "RoCE v2", "GPUDirect"]
+  },
+  "extended_specs": {
+    "compliance": ["RoHS", "TAA", "CE"],
+    "warranty": "3-Year Limited",
+    "datasheet_summary": "High-performance dual-port 400GbE NIC designed for AI and hyperscale workloads, featuring PCIe Gen6 support."
+  },
+  "power_specs": {
+    "voltage_range": "12V DC",
+    "max_power_draw": "75W Max",
+    "idle_power_draw": "18W",
+    "connector_type": "PCIe Slot Power"
+  }
+}
+
+For descriptions use these formats. If a specific data point is not found, put 'N/A':
+
+0.	Motherboards:
+•	Format: MB | [Form Factor / Socket] | [Manufacturer] | [Model] | [Chipset / Platform] | [Key I/O & Expansion] | [Max Power]
+•	Example: MB | ATX / LGA4677 | Advantech | ASMB-817T2-00A1 | Intel C741 | Gen5 PCIe, 8x SATA3, M.2 NVMe, Dual 10GbE | 75W Max
+
+1.	Compute & Memory
+•	CPU
+o	Format: CPU | [Model] | [Cores/Threads] | [Clock] | [Socket] | [Max Power]
+o	Example: CPU | Xeon Gold 6430 | 32C/64T | 2.1GHz | LGA 4677 | 350W Max
+•	MEMORY (RAM)
+o	Format: RAM | [Capacity] | [Speed] | [Rank] | [Type/ECC] | [Manufacturer] | [Voltage] | [Max Power]
+o	Example: RAM | 64GB | DDR5-4800 | 2Rx8 | ECC RDIMM | Samsung | 1.1V | 6W Max
+2. Storage & RAID
+•	STORAGE (SSD/HDD)
+o	Format: SSD/HDD | [Model] |  [Form Factor] | [Manufacturer] | [Capacity] | [Interface] | [Max Power]
+o	Example: SSD | U.2 (15mm) | Samsung | PM1733 | 7.68TB | NVMe Gen4 | 22W Max
+•	RAID Controller
+o	Format: RAID | [Profile] | [Manufacturer] | [Model] | [Cache] | [Interface] | [Max Power]
+o	Example: RAID | Low-Profile | Broadcom | 9560-8i | 4GB | PCIe Gen4 | 15W Max
+•	Drive CARRIER
+o	Format: CARRIER | [Size/Height] | [Manufacturer] | [Model] | [Bay Count] | [Interface] | [0W]
+•	RAID CABLES
+o	Format: CABLE | [Conn A-B] | [Length] | [Manufacturer] | [Model] | [Protocol] | [0W]
+3. Foundation & Mechanical
+•	CHASSIS
+o	Format: CHASSIS | [U/Depth] | [Manufacturer] | [Backplane] | [Fans] | [Material] | [Fan Power]
+o	Example: CHASSIS | 2U/20" | Trenton | 5-Slot Gen5 | 3x 80mm | Aluminum | 45W Max
+•	POWER SUPPLY (PSU)
+o	Format: PSU | [Wattage] | [Efficiency] | [Form Factor] | [Voltage] | [Type] | [Input Amps]
+o	Example: PSU | 1200W | Platinum | Slimline | 110/220V | Redundant | 12A @ 115V
+•	SLIDE RAILS
+o	Format: RAILS | [Travel] | [Load] | [Manufacturer] | [Compatibility] | [Type] | [0W]
+4. Expansion Cards
+•	NIC (Networking)
+o	Format: NIC | [Interface] | [Manufacturer] | [Model] | [Speed/Ports] | [Connector] | [Max Power]
+o	Example: NIC | PCIe Gen6 x16 | NVIDIA | ConnectX-8 | Dual 400GbE | QSFP112 | 75W Max
+•	GPU / Accelerators
+o	Format: GPU | [Width/TDP] | [Manufacturer] | [Model] | [VRAM] | [Architecture] | [Max Power]
+o	Example: GPU | Dual-Slot/450W | NVIDIA | RTX 6000 | 48GB | Ada | 450W Max	
+•	HBA
+o	HBA | [Form Factor] | [Manufacturer] | [Model] | [Protocol / Ports] | [Interface] | [Max Power]
+o	Example: HBA | FHHL | Inateck | KU8211-R-US | USB 3.2 Gen2 (8-Port) | PCIe Gen3 x4 | 25W Max
+•	RISER CARDS
+o	Format: RISER | [Elec/Mech] | [Manufacturer] | [Model] | [Orientation] | [Slots] | [Max Power]
+o	Example: RISER | x16 to 2x8 | Trenton | RSR-2000 | Right-Angle | 2-Slot | 5W Max
+5. Software & Autonomous
+•	OPERATING SYSTEM (OS)
+o	Format: OS | [Family/Version] | [Edition] | [Licensing] | [Cores] | [Arch] | [0W]
+6. Other (for parts that do not fit the classification types above)
+o	Format: [Type] | [Manufacturer] | [Model] | [Interface / Connector] | [Platform / Compatibility] | [Max Power]
+o	Example 1: TPM | Infineon | SLB9670 | SPI Header | Intel Xeon Platforms | 0.5W Max
+o	Example 2: FAN | Delta | PFR0912XHE | 4-Pin PWM | 1U–2U Server Chassis | 18W Max
+
 
 TEXT TO ANALYZE:
 {text[:12000]}
 
-Return ONLY the JSON object."""
+"""
 
         return prompt
 
